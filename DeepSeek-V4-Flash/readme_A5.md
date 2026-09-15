@@ -1,13 +1,13 @@
 # DeepSeek-V4 on Ascend NPU
-基于DeepSeek-V4-Flash减层模型在NPU上进行RLHF后训练的样例。
+基于DeepSeek-V4-Flash模型在NPU上进行RLHF后训练的样例。
 
-本用例基于8 x Atlas A5 实现， 开发者可以参照调整。
+本用例基于 8 x Atlas A5 实现， 开发者可以参照调整。
 
 ## 环境版本
 由于当前部分组件依赖尚未发布正式版本，我们将提供用于快速复现的基础镜像及部署方法，获取参照环境部署章节，主要依赖版本如下
 后续会更新正式版本
 
-| 依赖组件                 | 版本            | 
+| 依赖组件                | 版本            | 
 | :--------------------- | :------         | 
 | CANN                   | 9.2.0           | 
 | PyTorch                | 2.10.0          | 
@@ -66,13 +66,20 @@ ln -s ../mbridge/mbridge mbridge
 
 ### 启动训练
 
-目前提供减层脚本train_deepseek_v4_4layer_grpo_mindspeed_vllm_single_node_A5.sh，可用单机A5进行体验，请根据实际数据/权重等路径修改其中相应路径
+请根据实际数据/权重等路径修改ray_start_A5.sh 以及 train_deepseek_v4_grpo_mindspeed_vllm_A5.sh的中相应路径
+
 
 ```bash
 cd verl
-bash ../verl-ascend-recipe/DeepSeek-V4-Flash/examples/train_deepseek_v4_4layer_grpo_mindspeed_vllm_single_node_A5.sh
+bash ../verl-ascend-recipe/DeepSeek-V4-Flash/examples/ray_start_A5.sh
 ```
 
-### 性能效果
+单机减层可参考[train_deepseek_v4_4layer_grpo_mindspeed_vllm_single_node_A5.sh](examples/train_deepseek_v4_4layer_grpo_mindspeed_vllm_single_node_A5.sh)
 
+### 训练效果
+
+长跑80步训练效果曲线示例：
+![deepseekv4-a5](./src/run_deepseek_v4_npu_A5.PNG)
+
+减层性能效果示例：
 ![deepseekv4-4layer-a5](./src/run_deepseek_v4_4layer-a5.PNG)

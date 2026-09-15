@@ -53,12 +53,15 @@ cd Megatron-LM
 git apply --whitespace=nowarn ../verl-ascend-recipe/DeepSeek-V4-Flash/patch/megatron.patch && cd ..
 
 cd mbridge
-git apply --whitespace=nowarn ../verl-ascend-recipe/DeepSeek-V4-Flash/patch/mbridge.patch && cd ..
+git apply --whitespace=nowarn ../verl-ascend-recipe/DeepSeek-V4-Flash/patch/A5/mbridge_A5.patch && cd ..
+
+cd vllm
+git apply --whitespace=nowarn ../verl-ascend-recipe/DeepSeek-V4-Flash/patch/A5/vllm_A5.patch && cd ..
 
 cd vllm-ascend
-git apply --whitespace=nowarn ../verl-ascend-recipe/DeepSeek-V4-Flash/patch/vllm-ascend_A5.patch && cd ..
+git apply --whitespace=nowarn ../verl-ascend-recipe/DeepSeek-V4-Flash/patch/A5/vllm-ascend_A5.patch && cd ..
 
 cd verl
-git apply --whitespace=nowarn ../verl-ascend-recipe/DeepSeek-V4-Flash/patch/verl.patch && cd ..
+git apply --whitespace=nowarn ../verl-ascend-recipe/DeepSeek-V4-Flash/patch/A5/verl_A5.patch && cd ..
 
 
