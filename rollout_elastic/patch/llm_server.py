@@ -187,6 +187,40 @@ def _ft_max_request_retries(self) -> int:
         return 3
 
 
+@add(LLMServerClient, "_resolve_original_max_tokens")
+def _resolve_original_max_tokens(self, original_prompt: list[int]) -> Optional[int]:
+    """
+    Agent loops never put max_tokens/max_new_tokens in sampling_params, so the
+    budget must come from the config for token continuation (abort resume /
+    checkpoint resume) to have a well-defined remaining budget. Returns None
+    when the rollout config is unavailable.
+    """
+    try:
+        rollout_cfg = self.config.actor_rollout_ref.rollout
+        raw = min(
+            rollout_cfg.response_length,
+            rollout_cfg.prompt_length + rollout_cfg.response_length - len(original_prompt),
+        )
+    except (AttributeError, KeyError, TypeError):
+        return None
+    raw = int(raw)
+    if self.max_model_len is not None:
+        raw = min(raw, self.max_model_len - len(original_prompt))
+    return max(0, raw)
+
+
+@add(LLMServerClient, "_generation_budget_key")
+def _generation_budget_key(self) -> str:
+    """Sampling-params key the client pins the generation budget under.
+
+    The server (patch/vllm.py) accepts both max_tokens and max_new_tokens;
+    the client always writes this single key so token-continuation
+    bookkeeping (checkpoint resume, budget decrement) stays unambiguous.
+    Override in a subclass to adapt to another server dialect.
+    """
+    return "max_tokens"
+
+
 @add(LLMServerClient, "_call_server")
 async def _call_server(
     self,
@@ -440,14 +474,19 @@ async def _fully_generate(
     max_retries = self._ft_max_request_retries()
 
     original_prompt = normalize_token_ids(prompt_ids)
-    original_sampling = copy.deepcopy(sampling_params)
 
-    limit_key = None
-    if "max_tokens" in sampling_params:
-        limit_key = "max_tokens"
-    elif "max_new_tokens" in sampling_params:
-        limit_key = "max_new_tokens"
-    original_max_tokens = sampling_params.get(limit_key) if limit_key else None
+    sampling_params = dict(sampling_params)
+    budget_key = self._generation_budget_key()
+    original_max_tokens = self._resolve_original_max_tokens(original_prompt)
+    if original_max_tokens is not None:
+        sampling_params[budget_key] = original_max_tokens
+    else:
+        logger.warning(
+            "[FT] FullyLLMServerClient: cannot resolve generation budget from rollout config; "
+            "token continuation will fall back to the server-side per-attempt default "
+            "(each attempt may re-earn a full response_length)"
+        )
+    original_sampling = copy.deepcopy(sampling_params)
 
     final_output = TokenOutput(token_ids=[], log_probs=[], num_preempted=0)
     min_global_steps, max_global_steps, global_steps = None, None, None
@@ -496,8 +535,8 @@ async def _fully_generate(
                 progress_ctx = ProgressContext(checkpoint=checkpoint)
                 prefix_for_call = checkpoint.resume_prefix_token_ids()
                 call_sampling = copy.deepcopy(original_sampling)
-                if limit_key is not None:
-                    call_sampling[limit_key] = checkpoint.remaining_max_tokens()
+                if original_max_tokens is not None:
+                    call_sampling[budget_key] = checkpoint.remaining_max_tokens()
                 # Seed final_output with inherited cumulative so that after fault reset
                 # (where final_output was cleared) the persisted tokens are not lost.
                 # On the abort path this is idempotent (cumulative == existing final_output).
@@ -510,7 +549,7 @@ async def _fully_generate(
                         recovery_id,
                         checkpoint.attempt_id,
                         len(prefix_for_call),
-                        call_sampling.get(limit_key) if limit_key else None,
+                        call_sampling.get(budget_key),
                     )
                     final_output = TokenOutput(
                         token_ids=list(checkpoint.cumulative_token_ids),
@@ -610,10 +649,10 @@ async def _fully_generate(
         max_global_steps = global_steps
         model_weight_version = global_steps
 
-        # 3. update max_new_tokens; truncate (FT only) to the original budget
-        if original_max_tokens is not None and limit_key is not None:
+        # 3. update the generation budget; truncate (FT only) to the original budget
+        if original_max_tokens is not None:
             if not progress_on:
-                sampling_params[limit_key] = original_max_tokens - len(final_output.token_ids)
+                sampling_params[budget_key] = original_max_tokens - len(final_output.token_ids)
             if len(final_output.token_ids) >= original_max_tokens:
                 if ft_on and len(final_output.token_ids) > original_max_tokens:
                     final_output.token_ids = final_output.token_ids[:original_max_tokens]
