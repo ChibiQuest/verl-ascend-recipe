@@ -5,10 +5,10 @@
 - 大文件（>10M）：创建软链接
 """
 
-import os
-import sys
-import shutil
 import argparse
+import os
+import shutil
+import sys
 from pathlib import Path
 
 
@@ -116,21 +116,14 @@ def smart_copy_directory(src_dir, dst_dir, size_threshold=10 * 1024 * 1024, verb
 def smart_create_quant_model_json(
     src_dir,
     dst_dir,
-    quant_pattern=[
-        ".*.down_proj.weight",
-        ".*.gate_proj.weight",
-        ".*.up_proj.weight",
-        ".*.q_proj.weight",
-        ".*.k_proj.weight",
-        ".*.v_proj.weight",
-        ".*.o_proj.weight",
-    ],
+    quant_pattern=None,
     quant_config="W8A8_MXFP8",
     quant_method="ascend",
 ):
-    import json, re
+    import json
+    import re
 
-    quant_pattern = [
+    quant_pattern = quant_pattern or [
         ".*.down_proj.weight",
         ".*.gate_proj.weight",
         ".*.up_proj.weight",
@@ -138,10 +131,10 @@ def smart_create_quant_model_json(
         ".*.k_proj.weight",
         ".*.v_proj.weight",
         ".*.o_proj.weight",
-    ] if quant_pattern is None or len(quant_pattern)==0 else quant_pattern
+    ]
     print(f"  quant_pattern: {quant_pattern}")
 
-    with open(f"{src_dir}/model.safetensors.index.json", "r") as f:
+    with open(f"{src_dir}/model.safetensors.index.json") as f:
         data = json.load(f)
         weight_map = data["weight_map"]
         quant_mapping = {"quant_method": quant_method}
@@ -153,7 +146,7 @@ def smart_create_quant_model_json(
                 quant_mapping[key] = "FLOAT"
         with open(f"{dst_dir}/quant_model_description.json", "w") as f2:
             json.dump(quant_mapping, f2, indent=4, sort_keys=True)
-            print(f"  创建文件：quant_model_description.json ")
+            print("  创建文件：quant_model_description.json ")
 
 
 def main():
@@ -170,13 +163,18 @@ def main():
 
     parser.add_argument("src", help="源目录路径")
     parser.add_argument("dst", help="目标目录路径")
-    parser.add_argument("-t", "--threshold", default="10M", help="大小阈值，超过此大小的文件将创建软链接 (默认: 10M)。支持格式: 10M, 1G, 5242880)")
+    parser.add_argument(
+        "-t",
+        "--threshold",
+        default="10M",
+        help="大小阈值，超过此大小的文件将创建软链接 (默认: 10M)。支持格式: 10M, 1G, 5242880)",
+    )
     parser.add_argument("-q", "--quiet", action="store_true", help="安静模式，减少输出信息")
     parser.add_argument(
         "--quant_pattern",
         action="append",
         default=[],
-        help="需要量化的权重正则表达式（可多次指定），例如 --quant_pattern '.*.down_proj.weight'"
+        help="需要量化的权重正则表达式（可多次指定），例如 --quant_pattern '.*.down_proj.weight'",
     )
     parser.add_argument("--quant_config", type=str, default="W8A8_MXFP8", help="量化配置，如 W8A8_MXFP8")
     parser.add_argument("--quant_method", type=str, default="ascend", help="量化方法，如 ascend")
