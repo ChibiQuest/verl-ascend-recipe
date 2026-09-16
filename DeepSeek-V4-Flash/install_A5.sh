@@ -9,7 +9,7 @@ cd ..
 
 echo "2. install vllm-ascend from source"
 git clone https://github.com/vllm-project/vllm-ascend.git
-cd vllm-ascend && git checkout 343743a && install -r requirements.txt --extra-index-url https://triton-ascend.osinfra.cn/pypi/simple/ --trusted-host triton-ascend.osinfra.cn
+cd vllm-ascend && git checkout 343743a && pip install -r requirements.txt --extra-index-url https://triton-ascend.osinfra.cn/pypi/simple/ --trusted-host triton-ascend.osinfra.cn
 export COMPILE_CUSTOM_KERNELS=1
 pip install -v -e . --extra-index-url https://triton-ascend.osinfra.cn/pypi/simple/ --trusted-host triton-ascend.osinfra.cn 
 cd ..
